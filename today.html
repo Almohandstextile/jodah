@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>الجرد اليومي - إدارة بيانات الغزل</title>
+  <link rel="stylesheet" href="global.css">
+</head>
+<body>
+  <aside>
+    <nav>
+      <button class="tab-btn" onclick="window.location.href='index.html'">الرئيسية</button>
+      <button class="tab-btn active" onclick="window.location.href='today.html'">الجرد اليومي</button>
+      <button class="tab-btn" onclick="window.location.href='summary.html'">ملخص الأصناف</button>
+      <button class="tab-btn" onclick="window.location.href='login.html'">تسجيل الدخول</button>
+    </nav>
+  </aside>
+  <main>
+    <h1>الجرد اليومي</h1>
+    <form id="yarnForm">
+      <div class="form-group">
+        <label for="mainType">الصنف:</label>
+        <select id="mainType">
+          <option value="بولستر">بولستر</option>
+          <option value="فلات">فلات</option>
+          <option value="قصب">قصب</option>
+          <option value="شانيل">شانيل</option>
+          <option value="ليكرا">ليكرا</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="name">اسم الصنف:</label>
+        <input type="text" id="name" placeholder="مثلاً: بولستر بيج 300">
+      </div>
+      <div class="form-group">
+        <label for="weight">الوزن (كجم):</label>
+        <input type="number" id="weight" step="0.01">
+      </div>
+      <div class="form-group">
+        <label for="count">العدد (كونة):</label>
+        <input type="number" id="count" step="1">
+      </div>
+      <div class="form-group">
+        <label for="date">التاريخ:</label>
+        <input type="date" id="date" readonly>
+      </div>
+      <div class="form-group">
+        <label for="actionType">نوع العملية:</label>
+        <select id="actionType">
+          <option value="إضافة">إضافة</option>
+          <option value="سحب">سحب</option>
+        </select>
+      </div>
+      <button type="button" onclick="addYarn()">تسجيل</button>
+    </form>
+    <div class="table-container">
+      <table id="yarnGrid">
+        <thead>
+          <tr>
+            <th>التاريخ</th>
+            <th>اسم الصنف</th>
+            <th>إضافة (وزن)</th>
+            <th>سحب (وزن)</th>
+            <th>الرصيد (وزن)</th>
+            <th>إضافة (كونة)</th>
+            <th>سحب (كونة)</th>
+            <th>الرصيد (كونة)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- سيتم تعبئة الصفوف ديناميكياً -->
+        </tbody>
+      </table>
+    </div>
+  </main>
+  <script>
+    // تعبئة التاريخ تلقائياً بتاريخ اليوم
+    document.getElementById('date').value = new Date().toISOString().slice(0,10);
+
+    function getYarnTable(type) {
+      return JSON.parse(localStorage.getItem('yarns_' + type) || '[]');
+    }
+
+    function setYarnTable(type, data) {
+      localStorage.setItem('yarns_' + type, JSON.stringify(data));
+    }
+
+    function addYarn() {
+      const mainType = document.getElementById('mainType').value;
+      const name = document.getElementById('name').value;
+      const weight = parseFloat(document.getElementById('weight').value);
+      const count = parseInt(document.getElementById('count').value);
+      const date = document.getElementById('date').value;
+      const actionType = document.getElementById('actionType').value;
+
+      if (!mainType || !name || isNaN(weight) || isNaN(count) || !date || !actionType) {
+        alert('يرجى ملء جميع الحقول');
+        return;
+      }
+
+      let yarns = getYarnTable(mainType);
+      yarns.push({ name, weight, count, date, actionType });
+      setYarnTable(mainType, yarns);
+      renderYarnList();
+
+      document.getElementById('name').value = '';
+      document.getElementById('weight').value = '';
+      document.getElementById('count').value = '';
+    }
+
+    function renderYarnList() {
+      const mainType = document.getElementById('mainType').value;
+      const tableBody = document.querySelector('#yarnGrid tbody');
+      if (!tableBody) return;
+      tableBody.innerHTML = '';
+      let yarns = getYarnTable(mainType);
+
+      // فلترة حسب تاريخ اليوم فقط
+      const today = new Date().toISOString().slice(0,10);
+      yarns = yarns.filter(yarn => yarn.date === today);
+
+      // تجميع العمليات لكل اسم صنف
+      let summaryMap = {};
+      yarns.forEach(yarn => {
+        if (!summaryMap[yarn.name]) summaryMap[yarn.name] = { addWeight: 0, subWeight: 0, addCount: 0, subCount: 0 };
+        let weight = isNaN(parseFloat(yarn.weight)) ? 0 : parseFloat(yarn.weight);
+        let count = isNaN(parseInt(yarn.count)) ? 0 : parseInt(yarn.count);
+        if (yarn.actionType === 'إضافة') {
+          summaryMap[yarn.name].addWeight += weight;
+          summaryMap[yarn.name].addCount += count;
+        } else if (yarn.actionType === 'سحب') {
+          summaryMap[yarn.name].subWeight += weight;
+          summaryMap[yarn.name].subCount += count;
+        }
+      });
+
+      // عرض كل صنف مرة واحدة مع ملخص العمليات
+      Object.keys(summaryMap).forEach(name => {
+        const s = summaryMap[name];
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${today}</td>
+          <td>${name}</td>
+          <td>${s.addWeight}</td>
+          <td>${s.subWeight}</td>
+          <td>${s.addWeight - s.subWeight}</td>
+          <td>${s.addCount}</td>
+          <td>${s.subCount}</td>
+          <td>${s.addCount - s.subCount}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    // تحديث الجدول عند تغيير الصنف
+    document.getElementById('mainType').addEventListener('change', renderYarnList);
+
+    // عرض الجدول عند تحميل الصفحة
+    renderYarnList();
+  </script>
+</body>
+</html>

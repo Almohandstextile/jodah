@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>ملخص الأصناف - إدارة بيانات الغزل</title>
+  <link rel="stylesheet" href="global.css">
+</head>
+<body>
+  <h1>ملخص جميع الأصناف</h1>
+  <div class="table-container">
+    <table id="summaryGrid">
+      <thead>
+        <tr>
+          <th>الصنف</th>
+          <th>اسم الصنف</th>
+          <th>إجمالي الإضافة (وزن)</th>
+          <th>إجمالي السحب (وزن)</th>
+          <th>الرصيد (وزن)</th>
+          <th>إجمالي الإضافة (كونة)</th>
+          <th>إجمالي السحب (كونة)</th>
+          <th>الرصيد (كونة)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- سيتم تعبئة الصفوف ديناميكياً -->
+      </tbody>
+    </table>
+  </div>
+  <button onclick="window.location.href='index.html'" style="display:block;margin:30px auto;">العودة للرئيسية</button>
+  <script>
+    // جلب كل الأصناف من localStorage
+    function getAllYarns() {
+      let allYarns = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        let key = localStorage.key(i);
+        if (key.startsWith('yarns_')) {
+          let type = key.replace('yarns_', '');
+          let yarns = JSON.parse(localStorage.getItem(key) || '[]');
+          yarns.forEach(yarn => {
+            allYarns.push({ ...yarn, mainType: type });
+          });
+        }
+      }
+      return allYarns;
+    }
+
+    function renderSummary() {
+      const tableBody = document.querySelector('#summaryGrid tbody');
+      tableBody.innerHTML = '';
+      let yarns = getAllYarns();
+
+      // تجميع البيانات حسب الصنف واسم الصنف
+      let summaryMap = {};
+      yarns.forEach(yarn => {
+        let key = yarn.mainType + '||' + yarn.name;
+        if (!summaryMap[key]) summaryMap[key] = { mainType: yarn.mainType, name: yarn.name, addWeight: 0, subWeight: 0, addCount: 0, subCount: 0 };
+        let weight = isNaN(parseFloat(yarn.weight)) ? 0 : parseFloat(yarn.weight);
+        let count = isNaN(parseInt(yarn.count)) ? 0 : parseInt(yarn.count);
+        if (yarn.actionType === 'إضافة') {
+          summaryMap[key].addWeight += weight;
+          summaryMap[key].addCount += count;
+        } else if (yarn.actionType === 'سحب') {
+          summaryMap[key].subWeight += weight;
+          summaryMap[key].subCount += count;
+        }
+      });
+
+      // عرض كل صنف واسم صنف مع ملخص العمليات
+      Object.values(summaryMap).forEach(s => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${s.mainType}</td>
+          <td>${s.name}</td>
+          <td>${s.addWeight}</td>
+          <td>${s.subWeight}</td>
+          <td>${s.addWeight - s.subWeight}</td>
+          <td>${s.addCount}</td>
+          <td>${s.subCount}</td>
+          <td>${s.addCount - s.subCount}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', renderSummary);
+  </script>
+</body>
+</html>
